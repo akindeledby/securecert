@@ -1,0 +1,203 @@
+// =========================================================================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model User {
+  id                          String        @id @default(auto()) @map("_id") @db.ObjectId
+  email                       String        @unique
+  firstName                   String?
+  lastName                    String?
+  clerkUserId                 String        @unique
+  phoneNumber                 String?
+  role                        Role?
+  agreementStatus             AgreementStatus?         
+  institutionName             String?
+  adminId                     String?
+  institutionId               String?
+
+  createdAt                   DateTime      @default(now())
+  updatedAt                   DateTime      @updatedAt
+  isEnabled                   Boolean       @default(true)
+
+  admin                       Admin?        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  institution                 Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+}
+
+enum Role {
+  ADMIN
+  SUPERADMIN
+  INSTITUTION
+  GUEST
+}
+
+enum AgreementStatus {
+  AGREED
+  DISAGREED
+}
+
+model Admin {
+  id                            String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkUserId                   String   @unique
+  phone                         String?
+  email                         String?   @unique
+  password                      String?
+  isEnabled                     Boolean  @default(true)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  role                          AdminRole?
+
+  user                          User[]
+}
+
+enum AdminRole {
+  ADMIN
+  SUPERADMIN
+}
+
+
+model Institution {
+  id                            String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkUserId                   String   @unique
+  category                      String?
+  institutionName               String
+  phone                         String
+  institutionEmail              String?
+  institutionWebsite            String?
+  publicKey                     String?
+  agreementStatus               AgreementStatus?  
+  verificationChoice            String?
+  verificationUrl               String?
+  institutionLogo               String?
+  status                        InstitutionStatus @default(INACTIVE)
+  isVerified                    Boolean  @default(false)
+  isEnabled                     Boolean       @default(true)
+  
+
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  certificates                  Certificate[]
+  graduandCertificateData       GraduandCertificateData[]
+  nfcTagCount                   NfcTagCountPerInstitution?
+  user                          User[]
+}
+
+enum InstitutionStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model GraduandCertificateData {
+  id                      String      @id @default(auto()) @map("_id") @db.ObjectId
+  institutionName         String?
+  noOfGraduands          String?
+  batchYear               String?
+  uploadedDocument        String?
+  institutionId           String?
+  processedStatus         ProcessStatus?  @default(UNPROCESSED)
+  uploadedAt              DateTime?
+
+  institution             Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+}
+
+enum ProcessStatus {
+  PROCESSED
+  UNPROCESSED
+}
+
+model Certificate {
+  id                          String      @id @default(auto()) @map("_id") @db.ObjectId
+  graduandName               String?
+  certificateId               String?   @unique
+  certificateTitle            String?
+  chipUID                     String?    @unique
+  sdmKey                      String?
+  lastCounter                 Int?         @default(0)
+  referenceId                 String?
+  status                      CertStatus  @default(ACTIVE)
+  issuedYear                  String?
+  issuedAt                    DateTime?
+
+  institutionId               String?
+  institution                 Institution? @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@index([chipUID, status])
+  @@index([institutionId])
+}
+
+enum CertStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model NFCTag {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  chipUID                 String?   @unique
+  certificateId           String
+  sdmKey                  String?
+  lastCounter             Int?      @default(0)
+  referenceId             String?
+  status                  TagStatus @default(ACTIVE)
+  createdAt               DateTime @default(now())
+}
+
+enum TagStatus {
+  PENDING
+  ACTIVE
+}
+
+model NfcTagCountPerInstitution {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                  String
+  configuredBy            String
+  tagCount                Int @default(0)
+  institutionId           String @unique
+
+  institution             Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+}
+
+model AuditLog {
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  certificateId          String
+  type                   String
+  piccUid                String?
+  counter                String?
+  result                 String?
+  failureReason          String
+  ipAddress              String
+  userAgent              String
+  referenceId            String?
+  timestamp              DateTime
+}
+
+model Message {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                    String
+  email                   String
+  organization            String?
+  phone                   String
+  message                 String
+  isRead                  Boolean  @default(false)
+  createdAt               DateTime @default(now())
+
+  replies                 MessageReply[] @relation("MessageReplies")
+}
+
+model MessageReply {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  messageId               String   @db.ObjectId
+  reply                   String
+  createdAt               DateTime @default(now())
+
+  message                 Message  @relation(fields: [messageId], references: [id], onDelete: Cascade, name: "MessageReplies")
+}
+
